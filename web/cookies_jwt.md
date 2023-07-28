@@ -1,0 +1,58 @@
+# Cookies
+## Cookie Creation
+Cookies can be created in various ways.
+1. JavaScript (Client)
+Cookies can be created by running `document.cookie = "key=value"`
+2. Server-side
+Cookies can be set by server's request if the response header contains `set-cookie` header. Most browsers will handle this header automatically and set the appropriate cookies to the client browser.
+
+## Cookie Properties
+1. Cookies are **sent with every request**.
+2. Cookies have **scope**. Cookies are **domain** and **path** dependent. For instance, if a cookie is set for `google.com`, the cookie will be sent only to `google.com`, not `mail.google.com` or `docs.google.com`. If the cookies *domain* attribute is set to `.google.com`, then the cookie will be sent to all subdomains of `google.com`.  In JavaScript, this can be set via `document.cookie = "key=value; domain=.google.com"`. Cookies can have `path` attribute to send cookies to only certain paths. In JavaScript, this can be done by `document.cookie = "key=value; path=/login`.
+3. Cookies have lifespan. **expires** and/or **max-age** attributes can be set to do so. `document.cookie = "key=value; max-age=3min` will give the cookie a 3 minute life span. In this case, cookies will not be destroyed when the browser is closed but will become useless one it expires; these are called **permeant cookies**. Cookies without the above attributes will be destroyed when the browser is closed; these cookies are called **session cookies**.
+4. Cookies can be misused with forgery. Suppose an e-commerce web app manages user sessions with cookies. A user signs in, and the cookie is stored in the browser for `.ecommerce.com` lasting for 15 minutes. User decides to go to a malicious website - `https://www.legit.xyz` - with a button that performs `POST https://www.ecommerce.com/purchase{"item": "09ABB, "amount": 100}`. Because the user's browser has the session cookie for `ecommerce.com` the cookie for the domain gets sent with the POST request. Server uses the session cookie to verify the user, and the purchase goes through. This form of cyber attack is known as **CSRF (Cross Site Resource Forgery) attack**. To prevent this from happening, **same-site** attribute can be set in cookies. `samesite=strict` will only allow cookies to be sent if and only if the request is made while the user is on the same site as the cookie's stated domain and path. In other words, this can prevent potential CSRF attacks. `samesite=lax` allows cookies to be sent from cross origin sites under certain conditions.
+	1. The request must be a top-level navigation, meaning the cross origin site request must change the URL of the browser and result in navigation.
+	2. The request must be safe (GET or HEAD).
+
+	`samesite=none` allows cookies to be sent from cross origin sites without any limitations; this can be very dangerous and prone to CSRF attacks. In older version of Chrome, cookies without *same-site* attribute were set to `none` automatically. Newer versions of Chrome now defaults cookies without *same-site* attribute to `lax`.
+
+## Cookie Types
+1. Session cookie - cookies without *max-age* or *expires* attribute; these cookies will be destroyed when the browser closes.
+2. Permanent cookie - cookies with "max-age" or "expires" attribute; these cookies will be persistent even after the browser closes and has a set lifespan that makes them useless post-expiration.
+3. HTTP-only cookie - cookies that can only be set by the server; these cookies cannot be read using JavaScript, thus making them resilient to CSRF script attacks. **The cookies can be viewed under "Developer Mode"; however, they cannot be seen using `document.cookie` with JavaScript which makes it more secure**. To make a cookie HTTP-only, attach `httponly` to the `set-cookie` header.
+4. Secure cookie - cookies that can only be sent with HTTPS
+5. Third party cookie - cookies that are used for tracking users; Google Ads is a popular ad provider service that are widely used by many blogs. A lot of e-commerce websites may ask user to agree to share information to third party members. This can include allowing third party cookies. E-commerce websites allow Google Ads to send third party cookies to the user. When the user visits other websites with Google Ads these third party cookies are sent when requesting Google Ads from Google's server to retrieve ads that matches user's past browser history.
+6. Zombie cookie - cookies that recreate themselves even after disposal; there are numerous ways to implement zombie cookies. One is to use ETags (which are supposed to be used for caching) to store user identification. This then gets sent to the server, and the server can `set-cookie` based on the ETag value even if the user deletes cookies themselves.
+
+## Cookie Security
+* Stealing cookies - This can be a JavaScript code that reads cookies using `document.cookie` and sends the cookie values to a malicious endpoint.
+* Cross Site Request Forgery - This is done by making a network call from a different website using a cookie that might be stored within the user's browser.
+
+
+# JWT
+## Session Based Authentication
+Because HTTP is a stateless protocol, every request that the client makes to a server does not have any previous knowledge about past requests. In other words, the HTTP requests do not know whether the client has been verified or not. To fix this issue, **sessions** are used to keep track of user's authentication state. When a user sends a login request (`POST /login`) the server creates a new session by adding it to its database. The newly added data contains the session ID, the username, and any other metadata that might be useful for authentication management. The server then responds back with the session ID for the verified user. From now on, the client is responsible for sending requests to the server with the session ID; this allows the server to verify that the requests are being made by an authenticated user. The method of sending the session ID to the server can be via **cookies**, **Bearer Token**, **GET query parameter**,  or **POST body**. The session ID sent by the client is then compared with the data in the sessions table to verify the request and proceeds to fulfill the request. **However, many did not like the extra database query to verify the client for every single request from the client.** 
+
+## JSON Web Token
+To mediate the issue aforementioned, JWT was created. **The idea is to store the client session data and metadata within the token itself as opposed to storing it in a database.** This eliminates the need for the application to talk to the database for user authentication and reduces latency. **With session based authentication, the server database contained the user's session state. With JWT, the tokens contain the user's session state, which allows the entire web application (including the database) to be completely stateless.** JWT is composed of three parts: header, data, signature. The header tells how the JWT has been encrypted, the data contains the user information and metadata, and the signature is used by the server to verify the validity of the token. 
+
+## JWT Based Auth
+When a user sends a login request (`POST /login`) the server checks the credential, and it will create a user data/metadata JSON that will be added to the JWT. This data is then encrypted using a secret key that resides within the server, and the encrypted token becomes a large string. The token is then returned to the client, which the client will attach to future requests to verify itself. When the client makes a request with the token, the web application will decrypt the JWT using the secret key (also called **symmetric key**) and proceed if the JWT is valid. With multiple server instances running, the same symmetric key must be accessible to all servers to allow them to decrypt JWTs properly.
+
+## Refresh Token
+A problem with pure JWT is that once it is stolen, nothing can be done to prevent malicious users from accessing server resources. With session based authentication, the session database can simply remove the session once it is reported that it has been stolen to prevent further malicious attacks. With JWTs, the only thing that developers can do is to make the token's lifespan as short as possible and require reauthentication frequently. With this, malicious hackers will only have access to the service for a short amount of time. And because we don't want the server asking users to reauthenticate every 15 minutes, **refresh tokens** can be introduced. When user authenticates, two tokens are generated **short-lived access token used by the user to verify** and **long-lived refresh token used by the user in the case when the short-lived access token expires**. The refresh token is then stored within the database. The client will still send the access token when making requests, and the server won't need to make database queries to validate the user; however, when the access token expires, the client will have to make a request to refresh its access token (`POST /refresh`) and attach the refresh token. The application will validate the refresh token with the database to make sure that the refresh token matches and to check on other properties (whether refreshing is blocked for the user because it was reported to be stolen). After the database validation, a new access token is generated and returned back to the client to be used for future requests.
+
+## JWT Secret Sharing
+If some third party service wanted to create a new service based on the existing one, this new service will require the secret key that is used to decrypt JWTs. **However, if symmetric secret keys are used, this allows the third party service to not only validate the JWTs but also create new JWTs that can then be validated in other services which can increase security risks.** To prevent this issue, **asymmetric JWT** can be used. The key here is *symmetric keys allow both encryption and decryption of data; with asymmetric keys, a key is responsible for encryption and another key is responsible for decryption or validation.* Private asymmetric keys are kept secure and used for encryption and creation of JWT, and public asymmetric keys can be given out to all services that require JWT validation; public keys cannot be used for JWT creation. **Symmetric key encryption is much faster but bad in microservices architecture and working with various external services. Asymmetric key encryption is much slower but allows other services to decrypt JWT and validate users without jeopardizing application security.**
+
+## Pros & Cons
+* JWT is **stateless** and does not require a centralized database to keep track of user session state.
+* JWT is **great for APIs** since it makes it easier for users to validate.
+* JWT is **secure** assuming the secret key is difficult to guess and safely stored.
+* JWT can **carry useful information** without having to worry about the user manipulating the token.
+* JWT requires **sharing of secrets in microservices**.
+* JWT requires **key management** (private, public keys).
+* JWT requires **client to do some extra work** (requesting to refresh token when the server responds with access token expired).
+* JWT requires **storage of refresh token** and since refresh token is a long-lived token, it must be stored securely.
+* JWT is **difficult to revoke and control token access**. This will require the use of a central database to control permissions and access.
+* JWT is **dependent on secure token encryption**. If the encryption algorithm is not good, malicious JWT tokens can be created by clients.
