@@ -1,0 +1,18 @@
+# TCP vs UDP
+
+## TCP (Transmission Control Protocol)
+TCP is known for **guaranteed delivery of data**. TCP uses **ACKs and NACKs** which are acknowledgements to ensure that Machine A has received all the data from Machine B. If TCP does not receive an ACK for certain segments, then it resends these segmentsuntil the ACKs are received. TCP is also **connection based** meaning the client and the server must agree to connect prior to exchanging data. When the connection is lost, the client must re-establish a new connection with the server. TCP also performs **congestion control** which is in place to prevent the client from overwhelming the server with segments. This is done by checking the rate of ACKs received from the server and the rate of segment losses. Client will increase the rate of sending segments to the server if there are no segment losses. With increase in the number of segments arriving the server and/or the router will start dropping segments. This reduces the number of ACKs received from the server, and this signals the client to halve the send rate. TCP also **orders segments**. Because segments may arrive out-of-order, sequence numbers are attached to TCP segments, and this allows segments to be sent in parallel since they will be rearranged at the end.
+
+Because of these overheads and extra data, **TCP segments are large**. And because these TCP segments are large and because it sends back ACKs and NACKs, **TCP takes up more bandwidth**.  Because of guaranteed delivery, **TCP is slow**. Also, **TCP is stateful because it is connection based**. Once the server disconnects, the parties must re-establish connection and try again. Lastly, **TCP requires server memory**. TCP keeps track of all currently connected clients, and this requires resources. **DOS (Denial Of Service) attack** creates phony clients that establish connections with a server using TCP, and these bots will take up all the server resources and deny services to clients who actually want to use the server's services.
+
+Using `telnet IP_ADDRESS PORT_NUMBER`, a TCP connection can be established, and the client can communicate with the server at the specified endpoint.  If the server dies, the connection is automatically closed, and the client must re-establish connection with the server once it is running again.
+
+TCP is used in file transfer, chat applications, and applications where the need for guaranteed delivery of data is necessary.
+
+## UDP (User Datagram Protocol)
+UDP has **smaller packets** compared to TCP's segments because they don't have many overheads. UDP also **takes up less bandwidth**. Once segments are sent, UDP does not check for ACKs and does not send back segments that the server missed out on. **UDP lacks acknowledgements, guaranteed delivery, congestion control, and ordering of packets**. UDP is **connectionless**; thus, no prior connection or handshake is required between the client and the server. The connectionless nature makes UDP **stateless** so clients can always communicate with the server as long as it is open and running. **This can be a security issue since the server does not know who the clients are.**
+
+`netcat` can be used to communicate with a UDP server. 
+```echo "hello" | nc -w1 -u IP_ADDRESS PORT_NUMBER``` will send a UDP segment `hello` to the endpoint. `-w1` tells `netcat` to abort after 1 second of trying to send the data.
+
+UDP is used in live streaming since reduced latency is much more important than small data losses. **UDP is used for DNS since it is stateless which makes it easily scalable and since there's no need to establish connections.**
